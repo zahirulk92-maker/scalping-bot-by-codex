@@ -30,7 +30,7 @@ services:
     dockerContext: .
     envVars:
       - key: NEXT_PUBLIC_API_BASE_URL
-        fromService:
-          type: web
-          name: scalping-backend
-          property: url
+        value: "https://UPDATE_THIS_WITH_BACKEND_URL.onrender.com" # Update this in the Render dashboard
+
+
+
