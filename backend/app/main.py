@@ -42,7 +42,8 @@ from app.strategy.models import SignalSnapshot
 from app.strategy.engine import StrategyEngine
 from app.api.routes.strategy import router as strategy_router
 from app.api.routes.validation import router as validation_router
-from app.validation.engine import ValidationEngine
+from app.api.routes.system_health import router as system_health_router
+from app.validation.futures_validation import FuturesValidationEngine
 
 logger = logging.getLogger(__name__)
 
@@ -234,4 +235,5 @@ app.include_router(paper_router)
 app.include_router(backtest_router)
 app.include_router(optimization_router)
 app.include_router(system_router)
+app.include_router(system_health_router)
 app.include_router(validation_router)
