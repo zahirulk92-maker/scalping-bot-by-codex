@@ -1,0 +1,7 @@
+import type { PaperPosition } from "@/types/bot";
+
+export function PaperPositionPanel({ position }: { position: PaperPosition | undefined }) {
+  if (!position) return <section className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-5"><h2 className="font-semibold">Active Position</h2><p className="mt-4 text-sm text-slate-400">NO OPEN PAPER POSITION</p><p className="mt-1 text-xs text-amber-300">PAPER TRADING ONLY — NO REAL ORDERS</p></section>;
+  const values = [["Direction", position.direction.toUpperCase()], ["Entry fill", position.entry_fill_price], ["Current price", position.current_price], ["Quantity", position.quantity], ["Notional", `${position.position_notional} USDT`], ["Stop loss", position.stop_loss_price], ["Take profit", position.take_profit_price], ["Unrealized PnL", `${position.unrealized_net_pnl} USDT`], ["Estimated exit fee", `${position.estimated_exit_fee_usdt} USDT`], ["Opened", position.opened_at]];
+  return <section className="rounded-xl border border-cyan-400/20 bg-slate-900/70 p-5"><h2 className="font-semibold">PAPER POSITION · {position.symbol}</h2><p className="mt-2 text-xs font-bold tracking-[0.12em] text-amber-300">PAPER TRADING ONLY — NO REAL ORDERS</p><dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">{values.map(([label, value]) => <div key={label}><dt className="text-xs uppercase tracking-wide text-slate-500">{label}</dt><dd className="mt-1 break-all font-medium text-slate-200">{value}</dd></div>)}</dl></section>;
+}

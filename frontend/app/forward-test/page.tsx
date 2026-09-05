@@ -1,0 +1,45 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+
+import { botApi } from "@/lib/api";
+import type { AlertEvent, AuditEvent, DailyMetric, ForwardEquityPoint, ForwardMetrics, PaperSession, SymbolMetric, SystemHealth } from "@/types/bot";
+
+function Card({ label, value }: { label: string; value: string | number | null }) { return <article className="rounded-lg border border-slate-800 bg-slate-900/70 p-4"><p className="text-xs uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 text-lg font-semibold">{value ?? "--"}</p></article>; }
+function stateColor(value: string) { return value.includes("error") || value.includes("critical") ? "text-rose-300" : value.includes("degraded") || value.includes("stale") || value.includes("pending") ? "text-amber-300" : "text-emerald-300"; }
+function elapsed(seconds: number) { const hours = Math.floor(seconds / 3600); const minutes = Math.floor((seconds % 3600) / 60); return `${hours}h ${minutes}m`; }
+function EquityCurve({ points }: { points: ForwardEquityPoint[] }) { if (points.length < 2) return <p className="p-5 text-sm text-slate-400">The persisted equity curve will appear after paper account events.</p>; const values = points.map((point) => Number(point.equity)); const low = Math.min(...values); const high = Math.max(...values); const range = high - low || 1; const line = values.map((value, index) => `${index / (values.length - 1) * 100},${100 - (value - low) / range * 100}`).join(" "); return <svg aria-label="Persisted forward-test equity curve" className="h-56 w-full p-5" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points={line} fill="none" stroke="#22d3ee" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /></svg>; }
+
+export default function ForwardTestPage() {
+  const [session, setSession] = useState<PaperSession | null>(null);
+  const [metrics, setMetrics] = useState<ForwardMetrics | null>(null);
+  const [daily, setDaily] = useState<DailyMetric[]>([]);
+  const [equity, setEquity] = useState<ForwardEquityPoint[]>([]);
+  const [symbols, setSymbols] = useState<SymbolMetric[]>([]);
+  const [audit, setAudit] = useState<AuditEvent[]>([]);
+  const [health, setHealth] = useState<SystemHealth | null>(null);
+  const [alerts, setAlerts] = useState<AlertEvent[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const [nextSession, nextMetrics, nextDaily, nextEquity, nextSymbols, nextAudit, nextHealth, nextAlerts] = await Promise.all([botApi.paperSession(), botApi.paperMetrics(), botApi.paperDailyMetrics(), botApi.paperEquityMetrics(), botApi.paperSymbolMetrics(), botApi.paperAudit(), botApi.systemHealth(), botApi.systemAlerts()]);
+      setSession(nextSession); setMetrics(nextMetrics); setDaily(nextDaily); setEquity(nextEquity); setSymbols(nextSymbols); setAudit(nextAudit); setHealth(nextHealth); setAlerts(nextAlerts); setError(null);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Backend unavailable"); }
+  }, []);
+  useEffect(() => { void refresh(); const timer = window.setInterval(() => void refresh(), 15_000); return () => window.clearInterval(timer); }, [refresh]);
+
+  return <main className="mx-auto min-h-screen max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-5"><div><p className="text-xs font-bold tracking-[0.24em] text-cyan-400">FORWARD TEST</p><h1 className="mt-1 text-2xl font-bold">REAL-TIME PAPER SIMULATION</h1><p className="mt-2 text-sm text-amber-300">NO REAL ORDERS · PERSISTED PAPER SESSION</p></div><button className="rounded border border-cyan-400/60 px-3 py-2 text-sm text-cyan-200" onClick={() => void refresh()} type="button">Refresh</button></header>
+    {error ? <p className="mt-5 rounded border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</p> : null}
+    {session && metrics ? <>
+      <section className="mt-6 grid gap-4 rounded-xl border border-slate-800 bg-slate-900/70 p-5 sm:grid-cols-2 xl:grid-cols-6"><Card label="Session" value={session.session_id.slice(-12)} /><Card label="Profile" value={session.strategy_profile} /><Card label="Status" value={session.status} /><Card label="Started" value={new Date(session.started_at).toLocaleString()} /><Card label="Elapsed" value={elapsed(metrics.elapsed_seconds)} /><Card label="Equity" value={`${metrics.current_equity} USDT`} /></section>
+      <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5"><Card label="Net PnL" value={`${metrics.net_pnl} USDT`} /><Card label="Trades / Win rate" value={`${metrics.closed_trades} / ${metrics.win_rate ?? "--"}`} /><Card label="Profit factor" value={metrics.profit_factor} /><Card label="Expectancy / Avg R" value={`${metrics.expectancy_per_trade ?? "--"} / ${metrics.average_r_multiple ?? "--"}`} /><Card label="Fees" value={`${metrics.fees} USDT`} /><Card label="Max drawdown" value={`${metrics.max_drawdown_percent}%`} /><Card label="Current drawdown" value={`${metrics.current_drawdown_percent}%`} /><Card label="Signals / Actionable" value={`${metrics.signals} / ${metrics.actionable_signals}`} /><Card label="Risk approvals" value={metrics.risk_approvals} /><Card label="Paper entries" value={metrics.paper_entries} /></section>
+      <section className="mt-6 grid gap-4 xl:grid-cols-2"><div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5"><h2 className="font-semibold">System health</h2><div className="mt-4 grid grid-cols-2 gap-3 text-sm">{health ? Object.entries({ Database: health.database, Market: health.market, Indicators: health.indicators, Strategy: health.strategy, Risk: health.risk, "Paper engine": health.paper_execution, Recovery: health.recovery }).map(([name, value]) => <p key={name}>{name}: <strong className={stateColor(value)}>{value}</strong></p>) : <p>Loading health…</p>}</div></div><div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5"><h2 className="font-semibold">Warnings</h2>{alerts.length ? <ul className="mt-3 space-y-2 text-sm">{alerts.map((alert) => <li className={stateColor(alert.severity)} key={alert.alert_id}>{alert.severity.toUpperCase()} · {alert.code}: {alert.message} ({alert.count}×)</li>)}</ul> : <p className="mt-3 text-sm text-emerald-300">No active warnings.</p>}</div></section>
+      <section className="mt-6 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70"><h2 className="p-5 font-semibold">Persisted equity curve</h2><EquityCurve points={equity} /></section>
+      <section className="mt-6 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/70"><h2 className="p-5 font-semibold">Daily performance</h2><table className="min-w-full text-left text-xs"><thead className="bg-slate-950/60 text-slate-500"><tr>{["Date", "Trades", "Wins", "PnL", "Fees", "Drawdown", "Ending equity"].map((label) => <th className="px-3 py-3" key={label}>{label}</th>)}</tr></thead><tbody>{daily.map((row) => <tr className="border-t border-slate-800" key={row.date}><td className="px-3 py-3">{row.date}</td><td className="px-3 py-3">{row.trades}</td><td className="px-3 py-3">{row.wins}</td><td className="px-3 py-3">{row.net_pnl}</td><td className="px-3 py-3">{row.fees}</td><td className="px-3 py-3">{row.max_drawdown_percent}%</td><td className="px-3 py-3">{row.ending_equity}</td></tr>)}</tbody></table></section>
+      <section className="mt-6 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/70"><h2 className="p-5 font-semibold">Symbol breakdown</h2><table className="min-w-full text-left text-xs"><thead className="bg-slate-950/60 text-slate-500"><tr>{["Symbol", "Trades", "Win rate", "Net PnL", "PF", "Average R"].map((label) => <th className="px-3 py-3" key={label}>{label}</th>)}</tr></thead><tbody>{symbols.map((row) => <tr className="border-t border-slate-800" key={row.symbol}><td className="px-3 py-3">{row.symbol}</td><td className="px-3 py-3">{row.trades}</td><td className="px-3 py-3">{row.win_rate ?? "--"}</td><td className="px-3 py-3">{row.net_pnl}</td><td className="px-3 py-3">{row.profit_factor ?? "--"}</td><td className="px-3 py-3">{row.average_r_multiple ?? "--"}</td></tr>)}</tbody></table></section>
+      <section className="mt-6 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/70"><h2 className="p-5 font-semibold">Lifecycle audit trail</h2><table className="min-w-full text-left text-xs"><thead className="bg-slate-950/60 text-slate-500"><tr><th className="px-3 py-3">Time</th><th className="px-3 py-3">Event</th><th className="px-3 py-3">ID</th></tr></thead><tbody>{audit.map((event) => <tr className="border-t border-slate-800" key={event.event_id}><td className="px-3 py-3">{event.created_at}</td><td className="px-3 py-3">{event.event_type}</td><td className="px-3 py-3 font-mono">{event.event_id}</td></tr>)}</tbody></table></section>
+    </> : <p className="mt-6 text-sm text-slate-400">Loading persistent forward-test state…</p>}
+  </main>;
+}

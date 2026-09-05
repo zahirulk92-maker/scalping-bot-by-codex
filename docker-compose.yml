@@ -1,0 +1,42 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      APP_ENV: paper-production
+      TRADING_MODE: paper
+      EXECUTION_MODE: paper
+      DATABASE_URL: sqlite:////app/data/scalping_bot.db
+      LOG_FORMAT: json
+      FRONTEND_ORIGINS: http://localhost:3000
+    volumes:
+      - paper_data:/app/data
+      - paper_logs:/app/logs
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/system/live', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  paper_data:
+  paper_logs:

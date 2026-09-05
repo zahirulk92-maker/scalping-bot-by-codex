@@ -1,0 +1,12 @@
+.git
+.env
+.env.local
+**/__pycache__
+**/.pytest_cache
+**/.next
+**/node_modules
+backend/.venv
+data/*.db
+data/*.db-*
+data/backups
+data/exports
