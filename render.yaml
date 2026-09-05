@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: scalping-backend
+    env: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: .
+    plan: starter # Starter plan is required for Disks on Render
+    disk:
+      name: paper_data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: APP_ENV
+        value: paper-production
+      - key: TRADING_MODE
+        value: paper
+      - key: EXECUTION_MODE
+        value: paper
+      - key: DATABASE_URL
+        value: sqlite:////app/data/scalping_bot.db
+      - key: LOG_FORMAT
+        value: json
+      - key: FRONTEND_ORIGINS
+        value: "*" 
+
+  - type: web
+    name: scalping-frontend
+    env: docker
+    dockerfilePath: frontend/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE_URL
+        fromService:
+          type: web
+          name: scalping-backend
+          property: url
