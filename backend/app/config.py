@@ -145,8 +145,8 @@ class Settings(BaseSettings):
     @field_validator("database_url")
     @classmethod
     def validate_database_url(cls, value: str) -> str:
-        if not value.startswith("sqlite:///"):
-            raise ValueError("Phase 9 supports only a sqlite:/// database_url")
+        if not (value.startswith("sqlite:///") or value.startswith("postgresql")):
+            raise ValueError("database_url must be sqlite:/// or postgresql")
         return value
 
     @field_validator("strategy_profile")
