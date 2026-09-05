@@ -8,4 +8,4 @@ websockets>=14,<18
 pytest-cov>=6,<7
 ruff>=0.9,<1.0
 mypy>=1.14,<2.0
-psycopg[binary]==3.2.1
+psycopg[binary]>=3.0
