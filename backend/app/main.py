@@ -82,14 +82,22 @@ async def lifespan(application: FastAPI):
         session_settings,
         market_status_provider=application.state.market_service.status_snapshot,
     )
-    application.state.paper_execution_engine = PaperExecutionEngine(
-        session_settings,
-        market_status_provider=application.state.market_service.status_snapshot,
-        risk_account_sink=application.state.risk_engine.store.replace_account_state,
-        on_event=None,
-        repository=repository,
-        session_id=session.session_id,
-    )
+    if session_settings.execution_mode == "futures-demo":
+        application.state.paper_execution_engine = FuturesDemoExecutionEngine(
+            session_settings,
+            market_status_provider=application.state.market_service.status_snapshot,
+            risk_account_sink=application.state.risk_engine.store.replace_account_state,
+            on_event=None,
+        )
+    else:
+        application.state.paper_execution_engine = PaperExecutionEngine(
+            session_settings,
+            market_status_provider=application.state.market_service.status_snapshot,
+            risk_account_sink=application.state.risk_engine.store.replace_account_state,
+            on_event=None,
+            repository=repository,
+            session_id=session.session_id,
+        )
     application.state.market_service.set_market_candle_handler(application.state.paper_execution_engine.process_market_candle)
     account, positions, trades = repository.load_state(session.session_id)
     await application.state.paper_execution_engine.restore_state(account, positions, trades)
